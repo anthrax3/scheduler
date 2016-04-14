@@ -1,38 +1,69 @@
 ﻿namespace ScheduleR.Model
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
+    using System.Threading.Tasks;
     using dddlib;
+    using ScheduleR.Model.Events;
 
-    public class PointInTime : ValueObject<PointInTime>
+    public class PointInTime : AggregateRoot
     {
-        private static readonly long DateTimeEpochTicks = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks;
+        private readonly List<Callback> scheduledCallbacks = new List<Callback>();
 
-        public PointInTime(DateTime dateTime)
-            : this(ConvertToEpochMinutes(dateTime))
+        protected internal PointInTime()
         {
         }
 
-        public PointInTime(long epochMinutes)
+        public PointInTime(EpochMinutes epochMinutes)
         {
-            // NOTE (Cameron): Technically, epoch minutes may be negative to allow for times pre-dating the epoch.
+            Guard.Against.Null(() => epochMinutes);
+
+            if (epochMinutes.IsBefore(DateTime.UtcNow))
+            {
+                throw new BusinessException("Cannot create a schedule for a point in time that occurs in the past.");
+            }
+
+            // NOTE (Cameron): This is very odd, I know.
             this.EpochMinutes = epochMinutes;
         }
 
-        public long EpochMinutes { get; private set; }
+        [NaturalKey]
+        public EpochMinutes EpochMinutes { get; private set; }
 
-        public bool IsBefore(DateTime dateTime)
+        public void Schedule(Callback callback)
         {
-            return this.EpochMinutes < ConvertToEpochMinutes(dateTime);
-        }
+            Guard.Against.Null(() => callback);
 
-        private static long ConvertToEpochMinutes(DateTime dateTime)
-        {
-            if (dateTime.Kind != DateTimeKind.Utc)
+            if (this.scheduledCallbacks.Contains(callback))
             {
-                throw new BusinessException("The DateTime.Kind for a point in time must be UTC.");
+                throw new BusinessException("The specified task has already been scheduled.");
             }
 
-            return (dateTime.Ticks - DateTimeEpochTicks) / (60 * 1000 * 10000);
+            this.Apply(Map.Entity(callback).ToEvent(new CallbackScheduled { EpochMinutes = this.EpochMinutes.Value }));
+        }
+
+        public void InvokeCallbacks(ICallbackService callbackService)
+        {
+            var callbacks = this.scheduledCallbacks
+                .Select(async callback => 
+                    this.Apply(
+                        await callbackService.TryInvokeAsync(callback)
+                            ? (object)new CallbackComplete { EpochMinutes = this.EpochMinutes.Value , Id = callback.Id }
+                            : new CallbackFailed { EpochMinutes = this.EpochMinutes.Value, Id = callback.Id }))
+                .ToArray();
+
+            Task.WaitAll(callbacks);
+        }
+
+        private void Handle(CallbackScheduled @event)
+        {
+            if (this.EpochMinutes == null)
+            {
+                this.EpochMinutes = new EpochMinutes(@event.EpochMinutes);
+            }
+             
+            this.scheduledCallbacks.Add(Map.Event(@event).ToEntity<Callback>());
         }
     }
 }

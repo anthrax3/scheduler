@@ -1,7 +1,8 @@
-[Bb]uild/
+/[Pp]ackages/*
+!/[Pp]ackages/NuGet.CommandLine.*
+/[Bb]uild/
 [Bb]in/
 [Oo]bj/
-*.sln.ide/
 [Tt]est[Rr]esults
 *.suo
 *.user
@@ -10,3 +11,4 @@
 StyleCop.Cache
 _ReSharper*
 Thumbs.db
+*.sln.ide

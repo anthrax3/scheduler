@@ -62,19 +62,24 @@
     </Compile>
     <Compile Include="Application\Clock.cs" />
     <Compile Include="Guard.cs" />
+    <Compile Include="Microbus.cs" />
     <Compile Include="Model\Bootstrapper.cs" />
-    <Compile Include="Model\Events\ScheduleCreated.cs" />
-    <Compile Include="Model\Events\ScheduleTaskAdded.cs" />
-    <Compile Include="Model\Schedule.cs" />
+    <Compile Include="Model\Events\CallbackComplete.cs" />
+    <Compile Include="Model\Events\CallbackFailed.cs" />
+    <Compile Include="Model\Events\CallbackScheduled.cs" />
+    <Compile Include="Model\ICallbackService.cs" />
     <Compile Include="Model\PointInTime.cs" />
-    <Compile Include="Model\Task.cs" />
+    <Compile Include="Model\EpochMinutes.cs" />
+    <Compile Include="Model\Services\HttpCallbackService.cs" />
+    <Compile Include="Model\Callback.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Views\Callback.cs" />
+    <Compile Include="Views\ScheduledCallbacksView.cs" />
+    <Compile Include="WebApi\ScheduleTaskHandler.cs" />
+    <Compile Include="WebApi\Server.cs" />
   </ItemGroup>
   <ItemGroup>
-    <CodeAnalysisDictionary Include="..\ScheduleR.dictionary">
-      <Link>Properties\ScheduleR.dictionary</Link>
-    </CodeAnalysisDictionary>
     <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
@@ -85,6 +90,10 @@
     </Reference>
     <Reference Include="dddlib.Persistence, Version=0.5.0.0, Culture=neutral, PublicKeyToken=170a2ed9a7ece236, processorArchitecture=MSIL">
       <HintPath>..\..\packages\dddlib.Persistence.0.5.0-alpha81\lib\net45\dddlib.Persistence.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="dddlib.Persistence.EventDispatcher">
+      <HintPath>..\..\packages\dddlib.Persistence.EventDispatcher.0.5.0-alpha81\lib\net45\dddlib.Persistence.EventDispatcher.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />

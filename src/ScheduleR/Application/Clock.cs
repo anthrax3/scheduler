@@ -1,6 +1,8 @@
 ﻿namespace ScheduleR.Application
 {
     using System;
+    using System.Net;
+    using System.Net.Sockets;
     using System.Threading;
     using dddlib.Persistence;
     using ScheduleR.Model;
@@ -9,29 +11,32 @@
     {
         private readonly Timer timer;
         private readonly IEventStoreRepository repository;
+        private readonly ICallbackService callbackService;
 
-        public Clock(IEventStoreRepository repository)
+        public Clock(IEventStoreRepository repository, ICallbackService callbackService)
         {
             Guard.Against.Null(() => repository);
+            Guard.Against.Null(() => callbackService);
 
             this.repository = repository;
+            this.callbackService = callbackService;
 
             this.timer = new Timer(
                 state =>
                 {
                     try
                     {
-                        this.Tick(new PointInTime(DateTime.UtcNow));
+                        this.Tick(new EpochMinutes(DateTime.UtcNow));
                     }
                     catch (Exception)
                     {
                         // TODO (Cameron): Log?
                     }
 
-                    this.timer.Change(60 * 1000, Timeout.Infinite);
+                    this.timer.Change((60 - DateTime.UtcNow.Second) * 1000, Timeout.Infinite);
                 },
                 null,
-                30 * 1000,
+                (60 - DateTime.UtcNow.Second) * 1000,
                 Timeout.Infinite);
         }
 
@@ -43,21 +48,48 @@
             }
         }
 
-        private void Tick(PointInTime pointInTime)
+        // LINK (Cameron): http://stackoverflow.com/questions/1193955/how-to-query-an-ntp-server-using-c
+        private static DateTime GetNetworkTime()
         {
-            Console.WriteLine("Tick {0}", pointInTime.EpochMinutes);
+            const string ntpServer = "time.windows.com";
+            var ntpData = new byte[48];
+            ntpData[0] = 0x1B; // LeapIndicator = 0 (no warning), VersionNum = 3 (IPv4 only), Mode = 3 (Client Mode)
 
-            var schedule = default(Schedule);
+            var addresses = Dns.GetHostEntry(ntpServer).AddressList;
+            var ipEndPoint = new IPEndPoint(addresses[0], 123);
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            socket.Connect(ipEndPoint);
+            socket.Send(ntpData);
+            socket.Receive(ntpData);
+            socket.Close();
+
+            ulong intPart = (ulong)ntpData[40] << 24 | (ulong)ntpData[41] << 16 | (ulong)ntpData[42] << 8 | (ulong)ntpData[43];
+            ulong fractPart = (ulong)ntpData[44] << 24 | (ulong)ntpData[45] << 16 | (ulong)ntpData[46] << 8 | (ulong)ntpData[47];
+
+            var milliseconds = (intPart * 1000) + ((fractPart * 1000) / 0x100000000L);
+            var networkDateTime = (new DateTime(1900, 1, 1)).AddMilliseconds((long)milliseconds);
+
+            return networkDateTime;
+        }
+
+        private void Tick(EpochMinutes epochMinutes)
+        {
+            Console.WriteLine("Tick {0}", epochMinutes.Value);
+
+            var pointInTime = default(PointInTime);
             try
             {
-                schedule = this.repository.Load<Schedule>(pointInTime);
+                pointInTime = this.repository.Load<PointInTime>(epochMinutes);
             }
-            catch (Exception)
+            catch (AggregateRootNotFoundException)
             {
                 return;
             }
 
-            schedule.Compete();
+            pointInTime.InvokeCallbacks(this.callbackService);
+
+            this.repository.Save(pointInTime);
         }
     }
 }

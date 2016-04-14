@@ -8,19 +8,19 @@
     {
         public void Bootstrap(IConfiguration configure)
         {
-            configure.AggregateRoot<Schedule>().ToReconstituteUsing(() => new Schedule());
+            configure.AggregateRoot<PointInTime>().ToReconstituteUsing(() => new PointInTime());
 
-            configure.ValueObject<PointInTime>()
-                .ToMapToEvent<ScheduleCreated>(
-                    (pointInTime, @event) => @event.PointInTimeEpochMinutes = pointInTime.EpochMinutes,
-                    @event => new PointInTime(@event.PointInTimeEpochMinutes))
+            configure.ValueObject<EpochMinutes>()
+                .ToMapToEvent<CallbackScheduled>(
+                    (epochMinutes, @event) => @event.EpochMinutes = epochMinutes.Value,
+                    @event => new EpochMinutes(@event.EpochMinutes))
                 .ToUseValueObjectSerializer(
-                    pointInTime => pointInTime.EpochMinutes.ToString(),
-                    epochMinutes => new PointInTime(long.Parse(epochMinutes, CultureInfo.InvariantCulture)));
+                    epochMinutes => epochMinutes.Value.ToString(CultureInfo.InvariantCulture),
+                    epochMinutesValue => new EpochMinutes(long.Parse(epochMinutesValue, CultureInfo.InvariantCulture)));
 
-            configure.Entity<Task>().ToMapToEvent<ScheduleTaskAdded>(
-                (task, @event) => @event.TaskId = task.Id,
-                @event => new Task(@event.TaskId));
+            configure.Entity<Callback>().ToMapToEvent<CallbackScheduled>(
+                (task, @event) => @event.Id = task.Id,
+                @event => new Callback(@event.Id));
         }
     }
 }
