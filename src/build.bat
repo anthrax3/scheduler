@@ -1,0 +1,1 @@
+@msbuild ScheduleR.msbuild /t:Build;Test;Package
