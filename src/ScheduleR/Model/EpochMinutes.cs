@@ -3,7 +3,7 @@
     using System;
     using dddlib;
 
-    public class EpochMinutes : ValueObject<EpochMinutes>
+    public sealed class EpochMinutes : ValueObject<EpochMinutes>
     {
         private static readonly long DateTimeEpochTicks = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks;
 

@@ -6,6 +6,6 @@ using System;
 using System.Reflection;
 
 [assembly: AssemblyTitle("ScheduleR")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Schedule ALL the things!")]
 
-[assembly: CLSCompliant(true)]
+[assembly: CLSCompliant(false)]

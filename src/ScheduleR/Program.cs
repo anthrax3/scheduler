@@ -1,61 +1,118 @@
 ﻿namespace ScheduleR
 {
     using System;
-    using System.Collections.Generic;
     using System.Configuration;
-    using dddlib.Persistence.EventDispatcher.SqlServer;
     using dddlib.Persistence.SqlServer;
-    using Model.Events;
-    using ScheduleR.Application;
-    using ScheduleR.Model;
+    using dddlib.Projections.Memory;
+    using Microsoft.Owin.Hosting;
+    using Owin;
     using ScheduleR.Model.Services;
+    using Sdk;
     using Views;
+    using WebApi;
+    using System.Linq;
 
     internal class Program
     {
-        public static void Main(string[] args)
+        private static string DefaultUrlPrefix = "http://+:80/ScheduleR";
+
+        public static int Main(string[] args)
         {
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => Console.Out.LogAndTerminate((Exception)e.ExceptionObject);
+            Console.Out.Log(typeof(Program).Assembly);
+
+            Console.WriteLine();
+
+            var forceStart = false;
+
+            for (var index = 0; index < args.Length; index++)
+            {
+                switch (args[index].TrimStart('-', '/'))
+                {
+                    case "register":
+                        if (++index >= args.Length)
+                        {
+                            throw new Exception("Invalid URL after register.");
+                        }
+                        var urls = args[index].Split(';');
+
+                        if (!new Win32HttpUrlAclService().TryReserve(urls))
+                        {
+                            Console.WriteLine("HTTP namespace reservation failed.");
+                            return 1;
+                        }
+
+                        return 0;
+
+                    case "f":
+                    case "force":
+                    case "e":
+                    case "elevate":
+                        forceStart = true;
+                        break;
+                }
+            }
+
             var connectionString = ConfigurationManager.ConnectionStrings["ScheduleR"].ConnectionString;
-            //var repository = new MemoryEventStoreRepository();
-            var repository = new SqlServerEventStoreRepository(connectionString);
+            var baseUrls = (ConfigurationManager.AppSettings["BaseUrls"] ?? DefaultUrlPrefix)
+                .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
 
-            // add scheduled notification
-            var epochMinutes = new EpochMinutes(DateTime.UtcNow.AddMinutes(2));
-            var pointInTime = new PointInTime(epochMinutes);
-            var callback = new Model.Callback("test");
-            pointInTime.Schedule(callback);
-            repository.Save(pointInTime);
+            var eventStoreRepository = new SqlServerEventStoreRepository(connectionString);
 
-            //pointInTime.Schedule(callback);
-            /*
-                schedule a task to occur at a point in time
-                task.Schedule(point in time)
-             * 
-             * */
-            var service = new HttpCallbackService();
+            var callbackService = new HttpCallbackService();
 
-            var viewRepository = new List<Views.Callback>();
+            var viewRepository = new MemoryRepository<string, Callback>();
             var view = new ScheduledCallbacksView(viewRepository);
 
-            var bus = new Microbus();
-            bus.Register<CallbackScheduled>(view.Consume);
-            bus.Register<CallbackComplete>(view.Consume);
-            bus.Register<CallbackFailed>(view.Consume);
+            var bus = new Microbus().AutoRegister(view);
 
-            using (new SqlServerEventDispatcher(connectionString, (sequenceNumber, @event) => bus.Send(@event)))
-            using (new Clock(repository, service))
+            // event replay
+            var eventStore = new dddlib.Projections.SqlServer.SqlServerEventStore(connectionString);
+            foreach (var @event in eventStore.GetEventsFrom(0))
             {
-                Console.WriteLine("Waiting...");
+                bus.Send(@event);
+            }
+
+            using (var bootstrapper = new NancyBootstrapper(eventStoreRepository, viewRepository))
+            using (var webServer = new WebServer(new Win32HttpUrlAclService(), new ScheduleRHttpUrlAclService(), forceStart))
+            //using (new Clock(eventStoreRepository, callbackService))
+            //using (new SqlServerEventDispatcher(connectionString, (sequenceNumber, @event) => bus.Send(@event)))
+            {
+                var options = new StartOptions();
+                baseUrls.ForEach(options.Urls.Add);
+
+                webServer.Start(options, app => app.UseNancy(o => o.Bootstrapper = bootstrapper));
+
+                Console.WriteLine("Listening on:");
+                baseUrls.ForEach(Console.WriteLine);
+
+                if (Environment.UserInteractive)
+                {
+                    var baseUrl = baseUrls.First().Replace("+", "localhost").Replace("*", "localhost");
+
+                    new Browser().Open(new Uri(baseUrl));
+                }
 
                 string line;
                 do
                 {
+                    foreach (var item in viewRepository.GetAll())
+                    {
+                        var callback = item.Value;
+                        Console.WriteLine(
+                            "Callback '{0}' scheduled for {1} (Complete = {2})",
+                            callback.Id,
+                            callback.ScheduledDateTime,
+                            callback.IsComplete);
+                    }
+
                     line = Console.ReadLine();
-                    viewRepository.ForEach(x => Console.WriteLine("Callback '{0}' scheduled for {1} (Complete = {2})", x.Id, x.ScheduledDateTime, x.IsComplete));
                 }
                 while (!"exit".Equals(line, StringComparison.OrdinalIgnoreCase));
-
             }
+
+            return 0;
         }
     }
 }

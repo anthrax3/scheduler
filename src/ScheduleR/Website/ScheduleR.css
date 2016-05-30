@@ -1,0 +1,16 @@
+﻿body {
+    font-family: wf_segoe-ui_light,"Segoe UI Light","Segoe WP Light",wf_segoe-ui_normal,"Segoe UI",Segoe,"Segoe WP",Tahoma,Verdana,Arial,sans-serif;
+}
+span {
+    font-size: 36px;
+    font-weight: bold;
+    vertical-align: middle;
+}
+header {
+    padding-bottom: 5px;
+    border-bottom: 2px solid black;
+}
+
+header img {
+    vertical-align: middle;
+}

@@ -1,4 +1,4 @@
-Skeleton
-========
+ScheduleR
+=========
 
-An skeleton solution.
+Schedule ALL the things!

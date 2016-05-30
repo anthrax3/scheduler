@@ -37,10 +37,10 @@
 
             if (this.scheduledCallbacks.Contains(callback))
             {
-                throw new BusinessException("The specified task has already been scheduled.");
+                throw new BusinessException("The specified callback has already been scheduled.");
             }
 
-            this.Apply(Map.Entity(callback).ToEvent(new CallbackScheduled { EpochMinutes = this.EpochMinutes.Value }));
+            this.Apply(Map.ValueObject(callback).ToEvent(new CallbackScheduled { EpochMinutes = this.EpochMinutes.Value }));
         }
 
         public void InvokeCallbacks(ICallbackService callbackService)
@@ -63,7 +63,7 @@
                 this.EpochMinutes = new EpochMinutes(@event.EpochMinutes);
             }
              
-            this.scheduledCallbacks.Add(Map.Event(@event).ToEntity<Callback>());
+            this.scheduledCallbacks.Add(Map.Event(@event).ToValueObject<Callback>());
         }
     }
 }

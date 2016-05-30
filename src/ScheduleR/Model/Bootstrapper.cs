@@ -18,9 +18,11 @@
                     epochMinutes => epochMinutes.Value.ToString(CultureInfo.InvariantCulture),
                     epochMinutesValue => new EpochMinutes(long.Parse(epochMinutesValue, CultureInfo.InvariantCulture)));
 
-            configure.Entity<Callback>().ToMapToEvent<CallbackScheduled>(
-                (task, @event) => @event.Id = task.Id,
-                @event => new Callback(@event.Id));
+            configure.ValueObject<Callback>()
+                .ToMapToEvent<CallbackScheduled>(
+                    (callback, @event) => { @event.Id = callback.Id; @event.Url = callback.Url; },
+                    @event => new Callback(@event.Id, @event.Url))
+                .ToUseEqualityComparer(new Callback.Comparer());
         }
     }
 }
