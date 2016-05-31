@@ -1,11 +1,11 @@
-﻿namespace ScheduleR.Sdk
+﻿namespace Owin
 {
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Runtime.InteropServices;
 
-    internal class Win32HttpUrlAclService : IHttpUrlAclService
+    internal class Win32HttpUrlAclService
     {
         [DllImport("httpapi.dll", SetLastError = true)]
         private static extern uint HttpInitialize(HTTPAPI_VERSION Version, uint Flags, IntPtr pReserved);
@@ -83,20 +83,31 @@
         private const uint ERROR_ALREADY_EXISTS = 183;
         private const uint HTTP_INITIALIZE_CONFIG = 0x00000002;
 
-        public bool TryReserve(IEnumerable<string> urls)
+        public bool TryReserve(IEnumerable<string> urls, out int errorCode)
         {
             Guard.Against.NullOrEmptyOrNullElements(() => urls);
 
-            return urls.All(TryReserve);
+            errorCode = 0;
+
+            foreach (var url in urls)
+            {
+                if (!this.TryReserve(url, out errorCode))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
-        private bool TryReserve(string url)
+        private bool TryReserve(string url, out int errorCode)
         {
             var httpApiVersion = new HTTPAPI_VERSION(1, 0);
 
             var returnValue = HttpInitialize(httpApiVersion, HTTP_INITIALIZE_CONFIG, IntPtr.Zero);
             if (returnValue != NOERROR)
             {
+                errorCode = (int)returnValue;
                 return false;
             }
 
@@ -113,15 +124,16 @@
                 Marshal.SizeOf(inputConfigInfoSet),
                 IntPtr.Zero);
 
-            if (returnValue == ERROR_ALREADY_EXISTS)
+            if (returnValue != NOERROR)
             {
-                // TODO (Cameron): Do something different...?
+                errorCode = (int)returnValue;
                 return false;
             }
 
             Marshal.FreeCoTaskMem(pInputConfigInfo);
             HttpTerminate(HTTP_INITIALIZE_CONFIG, IntPtr.Zero);
 
+            errorCode = (int)returnValue;
             return returnValue == NOERROR;
         }
     }

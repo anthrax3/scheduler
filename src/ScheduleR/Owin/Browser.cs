@@ -1,4 +1,4 @@
-﻿namespace ScheduleR.Sdk
+﻿namespace Owin
 {
     using System;
     using System.ComponentModel;

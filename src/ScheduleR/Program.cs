@@ -24,27 +24,14 @@
             Console.WriteLine("{0} [{1}]\r\n{2}", assemblyInformation.Title, assemblyInformation.Version, assemblyInformation.Copyright);
             Console.WriteLine();
 
+            WebServer.AutoRegisterUrls();
+
             var forceStart = false;
 
             for (var index = 0; index < args.Length; index++)
             {
                 switch (args[index].TrimStart('-', '/'))
                 {
-                    case "register":
-                        if (++index >= args.Length)
-                        {
-                            throw new Exception("Invalid URL after register.");
-                        }
-                        var urls = args[index].Split(';');
-
-                        if (!new Win32HttpUrlAclService().TryReserve(urls))
-                        {
-                            Console.WriteLine("HTTP namespace reservation failed.");
-                            return 1;
-                        }
-
-                        return 0;
-
                     case "f":
                     case "force":
                     case "e":
@@ -76,15 +63,10 @@
             }
 
             using (var bootstrapper = new NancyBootstrapper(eventStoreRepository, viewRepository))
-            using (var webServer = new WebServer(new Win32HttpUrlAclService(), new ScheduleRHttpUrlAclService(), forceStart))
+            using (var webServer = new WebServer(forceStart).Start(baseUrls, app => app.UseNancy(o => o.Bootstrapper = bootstrapper)))
             //using (new Clock(eventStoreRepository, callbackService))
             //using (new SqlServerEventDispatcher(connectionString, (sequenceNumber, @event) => bus.Send(@event)))
             {
-                var options = new StartOptions();
-                baseUrls.ForEach(options.Urls.Add);
-
-                webServer.Start(options, app => app.UseNancy(o => o.Bootstrapper = bootstrapper));
-
                 Console.WriteLine("Listening on:");
                 baseUrls.ForEach(Console.WriteLine);
 
