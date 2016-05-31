@@ -2,6 +2,7 @@
 {
     using System;
     using System.Configuration;
+    using System.Linq;
     using dddlib.Persistence.SqlServer;
     using dddlib.Projections.Memory;
     using Microsoft.Owin.Hosting;
@@ -10,7 +11,6 @@
     using Sdk;
     using Views;
     using WebApi;
-    using System.Linq;
 
     internal class Program
     {
@@ -18,9 +18,10 @@
 
         public static int Main(string[] args)
         {
-            AppDomain.CurrentDomain.UnhandledException += (sender, e) => Console.Out.LogAndTerminate((Exception)e.ExceptionObject);
-            Console.Out.Log(typeof(Program).Assembly);
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => ((Exception)e.ExceptionObject).Handle(Console.Out);
 
+            var assemblyInformation = new Assembly.Information(typeof(Program).Assembly);
+            Console.WriteLine("{0} [{1}]\r\n{2}", assemblyInformation.Title, assemblyInformation.Version, assemblyInformation.Copyright);
             Console.WriteLine();
 
             var forceStart = false;

@@ -65,7 +65,8 @@
     </Compile>
     <Compile Include="Application\Clock.cs" />
     <Compile Include="GuardExtensions.cs" />
-    <Compile Include="Sdk\TextWriterExtensions.cs" />
+    <Compile Include="Sdk\AssemblyInfo.cs" />
+    <Compile Include="Sdk\ExceptionExtensions.cs" />
     <Compile Include="Sdk\Browser.cs" />
     <Compile Include="Sdk\SystemErrorCodes.cs" />
     <Compile Include="Sdk\Win32HttpUrlAclService.cs" />

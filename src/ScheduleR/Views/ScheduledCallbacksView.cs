@@ -1,10 +1,8 @@
 ﻿namespace ScheduleR.Views
 {
     using System;
-    using System.Collections.Generic;
-    using ScheduleR.Model.Events;
-    using System.Linq;
     using dddlib.Projections;
+    using ScheduleR.Model.Events;
 
     public class ScheduledCallbacksView
     {
