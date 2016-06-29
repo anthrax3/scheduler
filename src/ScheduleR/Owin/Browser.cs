@@ -6,13 +6,17 @@
 
     internal sealed class Browser
     {
-        public void Open(Uri uri)
+        public void Open(string url)
         {
-            Guard.Against.Null(() => uri);
+            Guard.Against.Null(() => url);
 
-            if (!uri.IsAbsoluteUri)
+            // NOTE (Cameron): Supplied URL may be a URL prefix so we need to fix this.
+            var actualUrl = url.Replace("+", "localhost").Replace("*", "localhost");
+            var uri = new Uri(actualUrl, UriKind.Absolute);
+
+            if (!Environment.UserInteractive)
             {
-                throw new ArgumentException("Invalid URI specified.", Guard.Expression.Parse(() => uri));
+                return;
             }
 
             // TODO (Cameron): Move try...catch from here.
@@ -32,7 +36,6 @@
             }
             catch (Exception)
             {
-                //MessageBox.Show(other.Message);
             }
         }
     }

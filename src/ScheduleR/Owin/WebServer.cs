@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Diagnostics;
+    using System.Globalization;
     using System.Linq;
     using System.Net;
     using System.Reflection;
@@ -18,7 +19,7 @@
 
         private static bool AutoRegisterInvoked;
 
-        private readonly bool? forceStart;
+        private readonly bool? elevateIfNecessary;
 
         private IDisposable webServer;
 
@@ -26,9 +27,9 @@
         {
         }
 
-        public WebServer(bool forceStart)
+        public WebServer(bool elevateIfNecessary)
         {
-            this.forceStart = forceStart;
+            this.elevateIfNecessary = elevateIfNecessary;
         }
 
         public WebServer Start(IEnumerable<string> urls, Action<IAppBuilder> startup)
@@ -69,7 +70,7 @@
             this.Stop();
         }
 
-        public static void AutoRegisterUrls()
+        public static void AutoRegisterUrls(bool terminateOnSuccess)
         {
             AutoRegisterInvoked = true;
 
@@ -81,18 +82,18 @@
                     case UrlPrefixRegisterArg:
                         if (++index >= args.Length)
                         {
-                            throw new Exception("Invalid URL after register.");
+                            throw new Exception("Invalid command line argument. Format: ScheduleR -register [urls], where [urls] is one or more semi-colon separated url prefixes.");
                         }
                         var urls = args[index].Split(';');
-
                         var errorCode = 0;
-                        if (!HttpUrlAclService.TryReserve(urls, out errorCode))
+                        if (HttpUrlAclService.TryReserve(urls, out errorCode) &&
+                            terminateOnSuccess)
                         {
-                            Console.WriteLine("HTTP namespace reservation failed.");
+                            Environment.Exit(errorCode);
                         }
 
-                        Environment.Exit(errorCode);
-                        break;
+                        throw new Exception(
+                            string.Format(CultureInfo.InvariantCulture, "HTTP namespace reservation failed with error code {0}.", errorCode));
                 }
             }
 
@@ -100,9 +101,11 @@
 
         private IDisposable GetWebServer(StartOptions options, Action<IAppBuilder> startup)
         {
-            if (this.forceStart.HasValue && !AutoRegisterInvoked)
+            if (this.elevateIfNecessary.HasValue && !AutoRegisterInvoked)
             {
-                throw new NotSupportedException("Cannot force a web server start without first calling WebServer.AutoRegister().");
+                // NOTE (Cameron): This is a message for developers. It shouldn't be seen by users of the system.
+                throw new NotSupportedException(
+                    "Cannot start a web server that is configured to 'elevate if necessary' without first calling WebServer.AutoRegister().");
             }
 
             var errorCode = 0;
@@ -123,7 +126,7 @@
             }
 
             if (httpListnerException.ErrorCode == 5 /* ERROR_ACCESS_DENIED */ &&
-                this.forceStart.HasValue && this.forceStart.Value &&
+                this.elevateIfNecessary.HasValue && this.elevateIfNecessary.Value &&
                 this.TryElevatedReserve(options.Urls, out errorCode))
             {
                 return WebApp.Start(options, startup);

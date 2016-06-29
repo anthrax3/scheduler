@@ -5,7 +5,6 @@
     using System.Linq;
     using dddlib.Persistence.SqlServer;
     using dddlib.Projections.Memory;
-    using Microsoft.Owin.Hosting;
     using Owin;
     using ScheduleR.Model.Services;
     using Sdk;
@@ -21,13 +20,12 @@
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => ((Exception)e.ExceptionObject).Handle(Console.Out);
 
             var assemblyInformation = new Assembly.Information(typeof(Program).Assembly);
-            Console.WriteLine("{0} [{1}]\r\n{2}", assemblyInformation.Title, assemblyInformation.Version, assemblyInformation.Copyright);
-            Console.WriteLine();
+            Console.WriteLine("{0} [{1}]\r\n{2}\r\n", assemblyInformation.Title, assemblyInformation.Version, assemblyInformation.Copyright);
 
-            WebServer.AutoRegisterUrls();
+            // NOTE (Cameron): This method runs when under UAC elevation (triggered from the command line).
+            WebServer.AutoRegisterUrls(true);
 
-            var forceStart = false;
-
+            var elevateIfNecessary = false;
             for (var index = 0; index < args.Length; index++)
             {
                 switch (args[index].TrimStart('-', '/'))
@@ -36,7 +34,7 @@
                     case "force":
                     case "e":
                     case "elevate":
-                        forceStart = true;
+                        elevateIfNecessary = true;
                         break;
                 }
             }
@@ -63,19 +61,14 @@
             }
 
             using (var bootstrapper = new NancyBootstrapper(eventStoreRepository, viewRepository))
-            using (var webServer = new WebServer(forceStart).Start(baseUrls, app => app.UseNancy(o => o.Bootstrapper = bootstrapper)))
+            using (var webServer = new WebServer(elevateIfNecessary).Start(baseUrls, app => app.UseNancy(o => o.Bootstrapper = bootstrapper)))
             //using (new Clock(eventStoreRepository, callbackService))
             //using (new SqlServerEventDispatcher(connectionString, (sequenceNumber, @event) => bus.Send(@event)))
             {
                 Console.WriteLine("Listening on:");
                 baseUrls.ForEach(Console.WriteLine);
 
-                if (Environment.UserInteractive)
-                {
-                    var baseUrl = baseUrls.First().Replace("+", "localhost").Replace("*", "localhost");
-
-                    new Browser().Open(new Uri(baseUrl));
-                }
+                new Browser().Open(baseUrls.First());
 
                 string line;
                 do

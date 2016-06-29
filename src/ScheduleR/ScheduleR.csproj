@@ -65,6 +65,7 @@
     </Compile>
     <Compile Include="Application\Clock.cs" />
     <Compile Include="GuardExtensions.cs" />
+    <Compile Include="Model\Message.cs" />
     <Compile Include="Sdk\Assembly.cs" />
     <Compile Include="Sdk\ExceptionExtensions.cs" />
     <Compile Include="Owin\Browser.cs" />
